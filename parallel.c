@@ -11,15 +11,14 @@ pRNG based on http://www.cs.wm.edu/~va/software/park/park.html
 #define DEFAULT    123456789
 
 static long seed = DEFAULT;
-double dt, dt_old; /* Alterado de static para global */
 
 double Random(void)
-	/*
-	----------------------------------------------------------------
-	Random returns a pseudo-random real number uniformly distributed
-	between 0.0 and 1.0.
-	----------------------------------------------------------------
-	*/
+/*
+----------------------------------------------------------------
+Random returns a pseudo-random real number uniformly distributed
+between 0.0 and 1.0.
+----------------------------------------------------------------
+*/
 {
 	const long Q = MODULUS / MULTIPLIER;
 	const long R = MODULUS % MULTIPLIER;
@@ -37,6 +36,11 @@ double Random(void)
 End of the pRNG algorithm
 */
 
+/* Functions declarations */
+void ComputeForces();
+void ComputeNewPos();
+void InitParticles();
+
 typedef struct {
 	double x, y, z;
 	double mass;
@@ -47,21 +51,20 @@ typedef struct {
 	double fx, fy, fz;
 } ParticleV;
 
-void InitParticles();
-double ComputeForces();
-double ComputeNewPos(double);
-
+double dt, dt_old;
+int npart; // number of particles
 Particle  * particles;   /* Particles */
 ParticleV * pv;          /* Particle velocity */
-int npart; // number of particles
+double max_f, sim_t;
 
 int main(int argc, char **argv)
 {
 	int i;
 	int cnt; /* number of times in loop */
-	double sim_t; /* Simulation time */
+
 	if(argc != 3){
-		printf("Wrong number of parameters.\nUsage: nbody num_bodies timesteps\n");
+		printf("Wrong number of parameters.\n");
+		printf("Usage: nbody num_bodies timesteps\n");
 		exit(1);
 	}
 
@@ -79,14 +82,17 @@ int main(int argc, char **argv)
 	sim_t = 0.0;
 
 	while (cnt--) {
-		double max_f;
 		/* Compute forces (2D only) */
-		max_f = ComputeForces();
+		ComputeForces();
 		/* Once we have the forces, we compute the changes in position */
-		sim_t += ComputeNewPos(max_f);
+		ComputeNewPos();
 	}
 	for (i=0; i<npart; i++)
 		fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
+
+	free(particles);
+	free(pv);
+
 	return 0;
 }
 
@@ -107,9 +113,8 @@ void InitParticles()
 	}
 }
 
-double ComputeForces()
+void ComputeForces()
 {
-	double max_f;
 	int i;
 	max_f = 0.0;
 	for (i=0; i<npart; i++) {
@@ -137,10 +142,9 @@ double ComputeForces()
 		fx = sqrt(fx*fx + fy*fy)/rmin;
 		if (fx > max_f) max_f = fx;
 	}
-	return max_f;
 }
 
-double ComputeNewPos(double max_f)
+void ComputeNewPos()
 {
 	int i;
 	double a0, a1, a2;
@@ -171,6 +175,6 @@ double ComputeNewPos(double max_f)
 		dt_old = dt;
 		dt    *= 2.0;
 	}
-	return dt_old;
+	sim_t += dt_old;
 }
 
