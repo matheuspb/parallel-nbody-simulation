@@ -83,8 +83,8 @@ int main(int argc, char **argv)
       /* Once we have the forces, we compute the changes in position */
       sim_t += ComputeNewPos( particles, pv, npart, max_f);
     }
-    for (i=0; i<npart; i++)
-    	fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
+    //for (i=0; i<npart; i++)
+    //	fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
     return 0;
 }
 
