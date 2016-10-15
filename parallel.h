@@ -8,7 +8,6 @@ void* ComputeForcesThread(void*);
 void ComputeNewPos();
 void* ComputeNewPosThread(void*);
 void InitParticles();
-double Random(void);
 
 typedef struct {
 	double x, y, z;
