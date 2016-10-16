@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 /*
  * pRNG based on http://www.cs.wm.edu/~va/software/park/park.html
@@ -58,8 +59,10 @@ int main(int argc, char **argv)
     int         cnt;         /* number of times in loop */
     double      sim_t;       /* Simulation time */
     int tmp;
-    if(argc != 3){
-		printf("Wrong number of parameters.\nUsage: nbody num_bodies timesteps\n");
+	if(argc != 4){
+		printf("Wrong number of parameters.\n");
+		printf("Usage: %s num_bodies timesteps print_results(0, !=0)\n",
+				argv[0]);
 		exit(1);
 	}
     
@@ -73,8 +76,8 @@ int main(int argc, char **argv)
     pv = (ParticleV *) malloc(sizeof(ParticleV)*npart);
     
     /* Generate the initial values */
-    InitParticles( particles, pv, npart);
     sim_t = 0.0;
+	InitParticles( particles, pv, npart);
 
     while (cnt--) {
       double max_f;
@@ -83,8 +86,10 @@ int main(int argc, char **argv)
       /* Once we have the forces, we compute the changes in position */
       sim_t += ComputeNewPos( particles, pv, npart, max_f);
     }
-    //for (i=0; i<npart; i++)
-    //	fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
+	if (atoi(argv[3])) {
+		for (i=0; i<npart; i++)
+			fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
+	}
     return 0;
 }
 

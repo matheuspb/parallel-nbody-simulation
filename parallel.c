@@ -7,22 +7,24 @@
 
 #define N_THREADS 4
 
-double dt, dt_old;
 int npart; // number of particles
 Particle  * particles;   /* Particles */
 ParticleV * pv;          /* Particle velocity */
-double max_f, sim_t, chunk_size;
+double max_f, sim_t, chunk_size, dt, dt_old;
 pthread_t compute_forces[N_THREADS];
 pthread_t compute_pos[N_THREADS];
 pthread_mutex_t max_lock;
 
-int main(int argc, char **argv)
-{
+double a0, a1, a2; // used in compute new position functions
+
+int main(int argc, char **argv) {
+	printf("Using %d threads to run simulation\n", N_THREADS);
 	int cnt; /* number of times in loop */
 
-	if(argc != 3){
+	if(argc != 4){
 		printf("Wrong number of parameters.\n");
-		printf("Usage: nbody num_bodies timesteps\n");
+		printf("Usage: %s num_bodies timesteps print_results(0, !=0)\n"
+				,argv[0]);
 		exit(1);
 	}
 
@@ -36,23 +38,22 @@ int main(int argc, char **argv)
 	particles = (Particle *) malloc(sizeof(Particle)*npart);
 	pv = (ParticleV *) malloc(sizeof(ParticleV)*npart);
 
-	/* Generate the initial values */
-	InitParticles();
-	sim_t = 0.0;
-
 	pthread_mutex_init(&max_lock, NULL);
 
+	sim_t = 0.0;
+	InitParticles();
+
 	while (cnt--) {
-		/* Compute forces (2D only) */
 		ComputeForces();
-		/* Once we have the forces, we compute the changes in position */
 		ComputeNewPos();
 	}
 
 	pthread_mutex_destroy(&max_lock);
 
-	//for (int i = 0; i < npart; i++)
-	//	fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
+	if (atoi(argv[3])) {
+		for (int i = 0; i < npart; i++)
+			fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
+	}
 
 	free(particles);
 	free(pv);
@@ -60,8 +61,7 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-void InitParticles()
-{
+void InitParticles() {
 	int i;
 	for (i=0; i<npart; i++) {
 		particles[i].x	  = Random();
@@ -77,8 +77,7 @@ void InitParticles()
 	}
 }
 
-void ComputeForces()
-{
+void ComputeForces() {
 	max_f = 0.0;
 	int indexes[N_THREADS];
 	for (int i = 0; i < N_THREADS; ++i) {
@@ -125,10 +124,8 @@ void* ComputeForcesThread(void* a) {
 	return NULL;
 }
 
-double a0, a1, a2;
 
-void ComputeNewPos()
-{
+void ComputeNewPos() {
 	double dt_new;
 	a0	 = 2.0 / (dt * (dt + dt_old));
 	a2	 = 2.0 / (dt_old * (dt + dt_old));
