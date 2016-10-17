@@ -5,23 +5,22 @@
 #include "parallel.h"
 #include "random.h"
 
-#define N_THREADS 4
-
-int npart; // number of particles
+int npart, N_THREADS; // number of particles
 Particle  * particles;   /* Particles */
 ParticleV * pv;          /* Particle velocity */
 double max_f, sim_t, chunk_size, dt, dt_old;
-pthread_t compute_forces[N_THREADS];
-pthread_t compute_pos[N_THREADS];
+pthread_t* compute_forces;
+pthread_t* compute_pos;
 pthread_mutex_t max_lock;
 
 double a0, a1, a2; // used in compute new position functions
 
+int* indexes;
+
 int main(int argc, char **argv) {
-	printf("Using %d threads to run simulation\n", N_THREADS);
 	int cnt; /* number of times in loop */
 
-	if(argc != 4){
+	if(argc != 5){
 		printf("Wrong number of parameters.\n");
 		printf("Usage: %s num_bodies timesteps print_results(0, !=0)\n"
 				,argv[0]);
@@ -30,18 +29,28 @@ int main(int argc, char **argv) {
 
 	npart = atoi(argv[1]);
 	cnt = atoi(argv[2]);
+	N_THREADS = atoi(argv[4]);
+	printf("Using %d threads to run simulation\n", N_THREADS);
 	dt = 0.001;
 	dt_old = 0.001;
 	chunk_size = (double)npart/(double)N_THREADS;
+
 
 	/* Allocate memory for particles */
 	particles = (Particle *) malloc(sizeof(Particle)*npart);
 	pv = (ParticleV *) malloc(sizeof(ParticleV)*npart);
 
-	pthread_mutex_init(&max_lock, NULL);
+	compute_forces = malloc(sizeof(pthread_t)*N_THREADS);
+	compute_pos = malloc(sizeof(pthread_t)*N_THREADS);
+	indexes = malloc(sizeof(int)*N_THREADS);
+
+	for (int i = 0; i < N_THREADS; ++i)
+		indexes[i] = i;
 
 	sim_t = 0.0;
 	InitParticles();
+
+	pthread_mutex_init(&max_lock, NULL);
 
 	while (cnt--) {
 		ComputeForces();
@@ -57,6 +66,9 @@ int main(int argc, char **argv) {
 
 	free(particles);
 	free(pv);
+
+	free(compute_forces);
+	free(compute_pos);
 
 	return 0;
 }
@@ -79,9 +91,7 @@ void InitParticles() {
 
 void ComputeForces() {
 	max_f = 0.0;
-	int indexes[N_THREADS];
 	for (int i = 0; i < N_THREADS; ++i) {
-		indexes[i] = i;
 		pthread_create(&compute_forces[i], NULL, ComputeForcesThread,
 				(void*) &indexes[i]);
 	}
@@ -130,9 +140,7 @@ void ComputeNewPos() {
 	a0	 = 2.0 / (dt * (dt + dt_old));
 	a2	 = 2.0 / (dt_old * (dt + dt_old));
 	a1	 = -(a0 + a2);
-	int indexes[N_THREADS];
 	for (int i = 0; i < N_THREADS; ++i) {
-		indexes[i] = i;
 		pthread_create(&compute_pos[i], NULL, ComputeNewPosThread,
 				(void*) &indexes[i]);
 	}
