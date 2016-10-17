@@ -1,0 +1,228 @@
+\documentclass[a4paper, 12pt]{article}
+
+\usepackage[portuges]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+\usepackage[urlcolor=blue, linkcolor=black, colorlinks=true]{hyperref}
+
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{titlepage}
+    \begin{center}
+        \huge{Universidade Federal de Santa Catarina}
+
+\vspace{10pt}
+
+        \vspace{85pt}
+
+        \textbf{\LARGE{Trabalho 1}}
+        \large{\\Simulação \textit{N-Body}}
+        \vspace{160pt}
+
+    \end{center}
+
+    \begin{flushleft}
+        \begin{tabbing}
+            Alunos\qquad\qquad\=
+            Matheus Silva Pinheiro Bittencourt\\
+            \>Vinicius Macelai\\
+            Professor\> Márcio Castro \\
+        \end{tabbing}
+    \end{flushleft}
+
+    \begin{center}
+        \vspace{\fill}
+        Florianópolis, 16 de outubro de 2016
+    \end{center}
+\end{titlepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\tableofcontents
+\thispagestyle{empty}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\pagenumbering{arabic}
+
+\section{Descrição do problema}
+
+O programa sequencial simula a interação gravitacional de um número "n" de
+corpos em um espaço bi-dimensional. A posição e a massa das partículas são
+geradas randomicamente. Cada passo da simulação é composto de basicamente duas
+partes, a primeira, em que são calculadas as forças aplicadas individualmente em
+cada partícula, e a segunda em que a nova posição de cada partícula é calculada,
+baseado na força que é aplicada a ela. O número de partículas é o primeiro
+parâmetro de entrada do programa.
+
+A força aplicada em cada partícula é calculada individualmente, e para cada
+partícula é calculado o quanto as outras partículas interagem com ela
+gravitacionalmente, assim tem-se a força aplicada a cada partícula. Tendo as
+forças aplicadas a cada partícula, é calculado a nova posição das partículas,
+usando a velocidade que a partícula já possuia, mais a aceleração que a força
+gravitacional gerou nela, já que $F = m*a$ . A cada passo da iteração é simulado
+um $\Delta t$ diferente, que é calculado baseado na força máxima exercida em uma
+partícula individual, dentre todas as partículas simuladas.
+
+Esse processo de cálculo de forças e computação das novas posições das
+partículas, é executado por um loop, um dado número de vezes, que é passado como
+segundo parâmetro de entrada do programa. Para melhor comparação de desempenh
+com a versão paralela adicionamos um terceiro parâmetro, que quando igual 
+``0'', não imprime as posições finais das partículas na tela, se for qualque
+outro valor, ele imprime.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Solução paralela}
+
+Na solução paralela, procuramos paralelizar as duas rotinas principais do
+programa sequencial, descritas na seção anterior, que são:
+\begin{verbatim}
+--> "nbody.c"
+...
+double ComputeForces(Particle[], Particle[], ParticleV[], int);
+double ComputeNewPos(Particle[], ParticleV[], int, double);
+...
+\end{verbatim}
+
+O primeiro passo, antes de paralelizar, foi colocar todas as variáveis que serão
+compartilhadas entre as threads, como globais. Também colocamos como globais as
+variáveis que já eram compartilhadas entre as duas rotinas, para evitar
+passa-lás como parâmetro. As assinaturas das funções então ficaram:
+\begin{verbatim}
+--> "parallel.h"
+...
+void ComputeForces();
+void ComputeNewPos();
+...
+\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% < subsection > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Rotina ComputeForces()}
+
+Para paralelizar a rotina \verb|ComputeForces()|, dividimos as iterações do
+\verb|for| principal, e cada thread ficou responsável por uma `fatia' do loop.
+A variável global \verb|chunk_size| armaneza o tamanho de cada fatia que vai ser
+entregue a thread, e para cada thread é passado como parâmetro, a parte do
+\verb|for| que será executado por ela. Por exemplo, simulando 20 partículas, com
+4 threads, a variável \verb|chunk_size| será igual a 5 (\verb|npart/N_THREADS|),
+e a thread 0 executará o loop de 0 até 4, a thread 1, de 5 até 9, a thread 2, de
+10 até 14 e a thread 3, de 15 até 19, assim computando a força para todas as 20
+partículas, igualmente distribuídas entre as threads. Isso é feito da seguinte
+forma na rotina \verb|ComputeForcesThread| :
+\begin{verbatim}
+...
+void* ComputeForcesThread(void* a) {
+    int nt = *((int*)a);
+    int begin = nt*chunk_size; // valor inicial de i
+    int end = (nt+1)*chunk_size; // valor final de i
+
+    for (int i = begin; i < end; ++i) {
+    \* código semelhante a rotina não paralela *\
+...
+\end{verbatim}
+Quando as threads são criadas, é passado como parâmetro o `número' da thread,
+que vai de 0 até \verb|N_THREADS-1|, isso permite calcular aonde ela vai iniciar
+o loop e aonde ele termina, como mostrado no código acima. Esse parâmetro é um
+ponteiro para um inteiro que está no array global \verb|indexes|, esse array
+possui seus valores iguais aos seus índices, ou seja, se \verb|N_THREADS = 5|,
+então \verb|indexes = {0, 1, 2, 3, 4}|.
+Agora, a rotina \verb|ComputeForces()| simplesmente cria as threads com
+\verb|pthread_create(...)| e sincroniza elas com \verb|pthread_join(...)|.
+Lembrando que a variável global \verb|max_f|, que antes era retorno dessa
+rotina, pode ser modificada por múltiplas threads. Para evitar a condição de
+corrida utilizamos um mutex:
+\begin{verbatim}
+...
+pthread_mutex_lock(&max_lock);
+if (fx > max_f) max_f = fx;
+pthread_mutex_unlock(&max_lock);
+...
+\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% < subsection > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Rotina ComputeNewPos()}
+
+Nessa rotina foi feito um processo semelhante a rotina \verb|ComputeForces()|. O
+for principal foi `fatiado' entre as threads igualmente. O processo feito para
+definir qual thread executa qual parte do \verb|for|, é semelhante. Nesse caso
+não há nenhuma condição de corrida, então não foi necessário uitilizar nenhum
+mecanismo extra para sincronização de threads. No lugar do \verb|for| que
+executava dentro da rotina sequencial, são criadas as threads, e depois elas são
+sincronizadas (join).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Análise dos resultados}
+\subsection{Plataforma utilizada}
+
+\begin{tabbing}
+    Processador:\qquad\qquad\=
+    Intel® Core™ i3-4010U\\
+    Frequência:\>1.7 GHz\\
+    Cores(Threads):\>2(4)
+\end{tabbing}
+
+O número de ``Threads'' se deve a tecnologia da Intel descrita no site deles
+por: ``Tecnologia Hyper-Threading Intel® (Tecnologia Intel® HT) oferece dois
+segmentos de processamento por núcleo físico. Aplicativos altamente segmentados
+podem fazer trabalhos adicionais paralelamente, concluindo as tarefas mais
+rapidamente.''. As informações do processador foram retiradas do site:
+\href{http://ark.intel.com/pt-br/products/75107/Intel-Core-i3-4010U-Processor-3M-Cache-1_70-GHz}{link}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% < subsection > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Comparação de desempenho}
+
+A seguir um tabela com o tempo dos resultados obtidos com diferentes números de
+threads, e diferentes números de partículas (n\_part) e iterações (cnt), os
+tempos foram obtidos fazendo a média de 3 execuções, usando o comando
+\verb|time| do bash:
+\begin{center}
+    \begin{tabular}{ |c|c||c|c|c| }
+    \hline
+    n\_part & cnt & Sequencial & 2 Threads & 4 Threads \\
+    \hline
+    1000 & 100 & 3,122s & 1,576s & 1,408s \\
+    \hline
+    100 & 20000 & 5,189s & 3,561s & 4,39s \\
+    \hline
+    5000 & 10 & 7,186s & 3,861s & 3,503s \\
+    \hline
+    \end{tabular}
+\end{center}
+Podemos observar que o programa paralelo, no geral, é mais rápido, porém em
+alguns casos é mais eficiente usar 2 threads, ao invés de 4, o que seria
+natural, já que é o que o processador suporta. Podemos observar também que a
+versão paralela tem maior vantagem quando computa um grande número de
+partículas, e não tem tanto ganho de desempenho quando é um número de iterações
+grande.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Observações sobre a execução}
+
+O código possui um arquivo \verb|makefile|, e pode ser compilado usando o
+comando \verb|make| do bash. Se compilado assim, serão gerados dois executáveis,
+o \verb|nbody.out|, que é a versão sequencial, e o \verb|parallel.out|, que é a
+versão paralela. Para executá-los, use o seguinte:
+\begin{verbatim}
+$ ./nbody.out arg1 arg2 arg3
+$ ./parallel.out arg1 arg2 arg3 arg4
+\end{verbatim}
+Onde,
+\begin{tabbing}
+    arg1 = \=Número de partículas\\
+    arg2 =\>Número de iterações\\
+    arg3 =\>`0' para não printar os resultados, qualquer outro valor irá printar\\
+    arg4 =\>Número de threads a serem usadas (caso seja a versão paralela)\\
+\end{tabbing}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  < fim >  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
+
