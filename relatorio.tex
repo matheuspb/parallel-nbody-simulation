@@ -1,6 +1,6 @@
 \documentclass[a4paper, 12pt]{article}
 
-\usepackage[portuges]{babel}
+\usepackage[brazilian]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{indentfirst}
 \usepackage[urlcolor=blue, linkcolor=black, colorlinks=true]{hyperref}
@@ -61,16 +61,16 @@ A força aplicada em cada partícula é calculada individualmente, e para cada
 partícula é calculado o quanto as outras partículas interagem com ela
 gravitacionalmente, assim tem-se a força aplicada a cada partícula. Tendo as
 forças aplicadas a cada partícula, é calculado a nova posição das partículas,
-usando a velocidade que a partícula já possuia, mais a aceleração que a força
+usando a velocidade que a partícula já possuía, mais a aceleração que a força
 gravitacional gerou nela, já que $F = m*a$ . A cada passo da iteração é simulado
 um $\Delta t$ diferente, que é calculado baseado na força máxima exercida em uma
 partícula individual, dentre todas as partículas simuladas.
 
 Esse processo de cálculo de forças e computação das novas posições das
 partículas, é executado por um loop, um dado número de vezes, que é passado como
-segundo parâmetro de entrada do programa. Para melhor comparação de desempenh
+segundo parâmetro de entrada do programa. Para melhor comparação de desempenho
 com a versão paralela adicionamos um terceiro parâmetro, que quando igual 
-``0'', não imprime as posições finais das partículas na tela, se for qualque
+``0'', não imprime as posições finais das partículas na tela, se for qualquer
 outro valor, ele imprime.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -105,7 +105,7 @@ void ComputeNewPos();
 
 Para paralelizar a rotina \verb|ComputeForces()|, dividimos as iterações do
 \verb|for| principal, e cada thread ficou responsável por uma `fatia' do loop.
-A variável global \verb|chunk_size| armaneza o tamanho de cada fatia que vai ser
+A variável global \verb|chunk_size| armazena o tamanho de cada fatia que vai ser
 entregue a thread, e para cada thread é passado como parâmetro, a parte do
 \verb|for| que será executado por ela. Por exemplo, simulando 20 partículas, com
 4 threads, a variável \verb|chunk_size| será igual a 5 (\verb|npart/N_THREADS|),
@@ -148,10 +148,10 @@ pthread_mutex_unlock(&max_lock);
 \subsection{Rotina ComputeNewPos()}
 
 Nessa rotina foi feito um processo semelhante a rotina \verb|ComputeForces()|. O
-for principal foi `fatiado' entre as threads igualmente. O processo feito para
-definir qual thread executa qual parte do \verb|for|, é semelhante. Nesse caso
-não há nenhuma condição de corrida, então não foi necessário uitilizar nenhum
-mecanismo extra para sincronização de threads. No lugar do \verb|for| que
+\verb|for| principal foi `fatiado' entre as threads igualmente. O processo feito
+para definir qual thread executa qual parte do \verb|for|, é semelhante. Nesse
+caso não há nenhuma condição de corrida, então não foi necessário utilizar
+nenhum mecanismo extra para sincronização de threads. No lugar do \verb|for| que
 executava dentro da rotina sequencial, são criadas as threads, e depois elas são
 sincronizadas (join).
 
@@ -178,7 +178,7 @@ rapidamente.''. As informações do processador foram retiradas do site:
 
 \subsection{Comparação de desempenho}
 
-A seguir um tabela com o tempo dos resultados obtidos com diferentes números de
+A seguir uma tabela com o tempo dos resultados obtidos com diferentes números de
 threads, e diferentes números de partículas (n\_part) e iterações (cnt), os
 tempos foram obtidos fazendo a média de 3 execuções, usando o comando
 \verb|time| do bash:
@@ -214,15 +214,12 @@ versão paralela. Para executá-los, use o seguinte:
 $ ./nbody.out arg1 arg2 arg3
 $ ./parallel.out arg1 arg2 arg3 arg4
 \end{verbatim}
-Onde,
-\begin{tabbing}
-    arg1 = \=Número de partículas\\
-    arg2 =\>Número de iterações\\
-    arg3 =\>`0' para não printar os resultados, qualquer outro valor irá printar\\
-    arg4 =\>Número de threads a serem usadas (caso seja a versão paralela)\\
-\end{tabbing}
+Onde,\\
+arg1 = Número de partículas\\
+arg2 = Número de iterações\\
+arg3 = `0' para não printar os resultados, qualquer outro valor irá printar\\
+arg4 = Número de threads a serem usadas (caso seja a versão paralela)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  < fim >  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \end{document}
-
