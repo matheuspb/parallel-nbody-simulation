@@ -1,3 +1,5 @@
+#include "random.h"
+
 /*
 pRNG based on http://www.cs.wm.edu/~va/software/park/park.html
 */
