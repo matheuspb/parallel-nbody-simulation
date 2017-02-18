@@ -1,9 +1,12 @@
 .PHONY: parallel
 
-all: nbody parallel
+CFLAGS = -std=c11 -lm
+
+default: nbody parallel
+	@echo "Succesfully compiled with $(CC)"
 
 nbody: nbody.c
-	gcc -o nbody.out nbody.c -std=c11 -lm
+	@$(CC) $(CFLAGS) nbody.c -o nbody.out
 
 parallel: parallel/parallel.c parallel/random.c
-	gcc -o parallel.out -std=c11 -lpthread -lm -Wall parallel/*.c
+	@$(CC) $(CFLAGS) -lpthread -Wall parallel/*.c -o parallel.out
