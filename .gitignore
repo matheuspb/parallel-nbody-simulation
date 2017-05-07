@@ -1,3 +1,6 @@
+nbody
+parallel
+
 # Object files
 *.o
 *.ko
